@@ -132,13 +132,19 @@ def compileModule(m: mod, cfg: CompilerConfig) -> WasmModule:
     vars = loop_tychecker.tycheckModule(m)
     instrs = compileStmts(m.stmts)
     idMain = WasmId('$main')
-    locals_ = [(identToWasmId(x), 'i64' if isinstance(info.ty, Int) else 'i32') for x, info in vars.items()]
+    locals_: list[tuple[WasmId, WasmValtype]] = [(identToWasmId(x), 'i64') if isinstance(info.ty, Int)
+                                                  else (identToWasmId(x), 'i32') for x, info in vars.items()]
     return WasmModule(imports=wasmImports(cfg.maxMemSize),
                       exports=[WasmExport("main", WasmExportFunc(idMain))],
                       globals=[],
                       data=[],
                       funcTable=WasmFuncTable([]),
                       funcs=[WasmFunc(idMain, [], None, locals_, instrs)])
+
+
+
+
+
 
 
 
