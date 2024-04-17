@@ -16,38 +16,38 @@ def compileStmts(stmts: list[stmt]) -> list[WasmInstr]:
             case Assign(var, right):
                 wasmInstructions.extend(compileExpressions(right))
                 wasmInstructions.append(WasmInstrVarLocal(op='set', id=WasmId('$' + var.name)))
-            case IfStmt(cond, thenBody, elseBody):
-                thenInstrs = compileStmts(thenBody)
-                elseInstrs = compileStmts(elseBody)
-                condInstrs = compileExpressions(cond)
+            case IfStmt(ifVar, thenVar, elseVar):
+                thenInstrsuctions = compileStmts(thenVar)
+                elseInstructions = compileStmts(elseVar)
+                ifInstructions = compileExpressions(ifVar)
 
-                instrs: list[WasmInstr] = []
-                instrs.extend(condInstrs)
+                instructions: list[WasmInstr] = []
+                instructions.extend(ifInstructions)
 
-                instrs.append(WasmInstrIf(None, thenInstrs, elseInstrs))
+                instructions.append(WasmInstrIf(None, thenInstrsuctions, elseInstructions))
 
-                wasmInstructions.extend(instrs)
+                wasmInstructions.extend(instructions)
 
-            case WhileStmt(cond, body):
-                loopStartLabel = WasmId('$loopstart')
-                loopEndLabel = WasmId('$loopend') 
-                instrs: list[WasmInstr] = []
+            case WhileStmt(whileCondition, whileBody):
+                loopStart = WasmId('$loopstart')
+                loopEnd = WasmId('$loopend') 
+                instructions: list[WasmInstr] = []
 
-                bodyInstrs = compileStmts(body)
-                condInstrs = compileExpressions(cond)
+                bodyInstructions = compileStmts(whileBody)
+                whileConditionInstructions = compileExpressions(whileCondition)
 
-                whileBody: list[WasmInstr] = []
-                whileBody += condInstrs
-                whileBody.append(WasmInstrIf(None, [],
-                            [WasmInstrBranch(loopEndLabel, False)]))
-                whileBody.extend(bodyInstrs)
-                whileBody.append(WasmInstrBranch(loopStartLabel, False))
+                body: list[WasmInstr] = []
+                body += whileConditionInstructions
+                body.append(WasmInstrIf(None, [],
+                            [WasmInstrBranch(loopEnd, False)]))
+                body.extend(bodyInstructions)
+                body.append(WasmInstrBranch(loopStart, False))
 
-                instrs.append(WasmInstrBlock(loopEndLabel, None, [
-                    WasmInstrLoop(loopStartLabel, whileBody),
+                instructions.append(WasmInstrBlock(loopEnd, None, [
+                    WasmInstrLoop(loopStart, body= body),
                 ])) 
 
-                wasmInstructions.extend(instrs)
+                wasmInstructions.extend(instructions)
 
     return wasmInstructions
 
@@ -82,6 +82,13 @@ def compileExpressions(exp: exp) -> list[WasmInstr]:
                     wasmInstructions.append(WasmInstrNumBinOp(ty='i64', op='add'))
                 case Mul():
                     wasmInstructions.append(WasmInstrNumBinOp(ty='i64', op='mul'))
+                case Eq():
+                    if isinstance(left, BoolConst) and isinstance(right, BoolConst):
+                        wasmInstructions.append(WasmInstrIntRelOp(ty='i32',op='eq'))
+                    else:
+                        wasmInstructions.append(WasmInstrIntRelOp(ty='i64',op='eq'))
+                case NotEq():
+                    wasmInstructions.append(WasmInstrIntRelOp(ty='i64',op='ne'))
                 case Less():
                     wasmInstructions.append(WasmInstrIntRelOp(ty='i64', op='lt_s'))
                 case LessEq():
@@ -90,25 +97,18 @@ def compileExpressions(exp: exp) -> list[WasmInstr]:
                     wasmInstructions.append(WasmInstrIntRelOp(ty='i64', op='gt_s'))
                 case GreaterEq():
                     wasmInstructions.append(WasmInstrIntRelOp(ty='i64', op='ge_s'))
-                case Eq():
-                    if isinstance(left, BoolConst) and isinstance(right, BoolConst):
-                        wasmInstructions.append(WasmInstrIntRelOp(ty='i32',op='eq'))
-                    else:
-                        wasmInstructions.append(WasmInstrIntRelOp(ty='i64',op='eq'))
-                case NotEq():
-                    wasmInstructions.append(WasmInstrIntRelOp(ty='i64',op='ne'))
                 case And():
                     wasmInstructions: list[WasmInstr] = []
                     wasmInstructions+= wasmInstructionL
-                    wasmInstructions.append(WasmInstrIf('i32',wasmInstructionR, [WasmInstrConst('i32',0)]))
+                    wasmInstructions.append(WasmInstrIf('i32',wasmInstructionR, [WasmInstrConst(ty='i32',val=0)]))
                 case Or():
                     wasmInstructions: list[WasmInstr] = []
                     wasmInstructions+= wasmInstructionL
-                    wasmInstructions.append(WasmInstrIf('i32', [WasmInstrConst('i32',1)], compileExpressions(right)))
+                    wasmInstructions.append(WasmInstrIf('i32', [WasmInstrConst(ty='i32',val=1)], compileExpressions(right)))
         case Name(name):
             wasmInstructions.append(WasmInstrVarLocal(op='get', id=identToWasmId(name)))
         case BoolConst(value):
-            wasmInstructions.append(WasmInstrConst('i32', int(value)))
+            wasmInstructions.append(WasmInstrConst(ty='i32', val=int(value)))
     return wasmInstructions
 
     
